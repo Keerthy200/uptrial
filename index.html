@@ -74,6 +74,24 @@
             border-radius: 5px;
             display: none;
         }
+        .result-box {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+            display: none;
+        }
+        .result-box h3 {
+            margin-bottom: 10px;
+        }
+        .message {
+            margin-top: 10px;
+            color: red;
+            font-size: 14px;
+        }
         .box:nth-child(1) { background-color: #ff5733; }
         .box:nth-child(2) { background-color: #33ff57; }
         .box:nth-child(3) { background-color: #3357ff; }
@@ -99,6 +117,8 @@
     
     <div id="info" class="info-box"></div>
     <div id="points-box" class="points-box"></div>
+    <div id="result-box" class="result-box"></div>
+    <div id="message" class="message"></div>
     
     <script>
         const data = {
@@ -150,24 +170,50 @@
             ]
         };
 
-        function saveSelection(category, action, isChecked) {
-            let selections = JSON.parse(localStorage.getItem("selections")) || {};
-            if (!selections[category]) {
-                selections[category] = {};
+        // Initialize an array to store daily scores with dates
+        let dailyScores = JSON.parse(localStorage.getItem("dailyScores")) || [];
+
+        // Function to get today's date in YYYY-MM-DD format
+        function getToday() {
+            const today = new Date();
+            return today.toISOString().split('T')[0];
+        }
+
+        // Function to calculate the weekly score (last 7 days)
+        function calculateWeeklyScore() {
+            const today = new Date();
+            const oneWeekAgo = new Date(today);
+            oneWeekAgo.setDate(today.getDate() - 7);
+
+            let weeklyScore = 0;
+            dailyScores.forEach(entry => {
+                const entryDate = new Date(entry.date);
+                if (entryDate >= oneWeekAgo) {
+                    weeklyScore += entry.score;
+                }
+            });
+            return weeklyScore;
+        }
+
+        // Function to add daily score
+        function addDailyScore() {
+            const resultBox = document.getElementById("result-box");
+            const messageDiv = document.getElementById("message");
+
+            // Get today's date
+            const today = getToday();
+
+            // Check if a score for today already exists
+            const existingEntryIndex = dailyScores.findIndex(entry => entry.date === today);
+            if (existingEntryIndex !== -1) {
+                // Prevent the user from submitting more than once a day
+                messageDiv.textContent = "You have already uploaded today's score.";
+                return;
             }
-            selections[category][action] = isChecked;
-            localStorage.setItem("selections", JSON.stringify(selections));
-            updatePoints();
-        }
 
-        function loadSelections() {
-            return JSON.parse(localStorage.getItem("selections")) || {};
-        }
-
-        function updatePoints() {
-            let selections = loadSelections();
+            // Calculate total points for today
             let totalPoints = 0;
-
+            const selections = JSON.parse(localStorage.getItem("selections")) || {};
             for (let category in selections) {
                 for (let action in selections[category]) {
                     if (selections[category][action]) {
@@ -176,14 +222,31 @@
                 }
             }
 
-            let pointsBox = document.getElementById("points-box");
-            pointsBox.textContent = `You have earned ${totalPoints} points!`;
-            pointsBox.style.display = totalPoints > 0 ? "block" : "none";
+            // Add a new entry for today
+            dailyScores.push({ date: today, score: totalPoints });
+
+            // Save the updated array to localStorage
+            localStorage.setItem("dailyScores", JSON.stringify(dailyScores));
+
+            // Calculate the weekly score
+            const weeklyScore = calculateWeeklyScore();
+
+            // Display the result
+            resultBox.innerHTML = `
+                <h3>Result</h3>
+                <p>Daily Score: ${totalPoints} points</p>
+                <p>Weekly Score: ${weeklyScore} points</p>
+            `;
+            resultBox.style.display = 'block';
+
+            // Clear the message
+            messageDiv.textContent = "";
         }
 
+        // Function to show info for a category
         function showInfo(category) {
             const infoBox = document.getElementById('info');
-            const selections = loadSelections();
+            const selections = JSON.parse(localStorage.getItem("selections")) || {};
 
             infoBox.innerHTML = `
                 <h3>${category}</h3>
@@ -196,12 +259,44 @@
                         </label>
                     `;
                 }).join('')}
+                <button onclick="addDailyScore()">Submit</button>
             `;
-            
             infoBox.style.display = 'block';
         }
 
-        updatePoints();
+        // Function to save selections
+        function saveSelection(category, action, isChecked) {
+            let selections = JSON.parse(localStorage.getItem("selections")) || {};
+            if (!selections[category]) {
+                selections[category] = {};
+            }
+            selections[category][action] = isChecked;
+            localStorage.setItem("selections", JSON.stringify(selections));
+        }
+
+        // Initialize the page
+        function initialize() {
+            const resultBox = document.getElementById("result-box");
+            const weeklyScore = calculateWeeklyScore();
+
+            // Find today's score
+            const today = getToday();
+            const todayEntry = dailyScores.find(entry => entry.date === today);
+            const dailyScore = todayEntry ? todayEntry.score : 0;
+
+            // Display the result
+            resultBox.innerHTML = `
+                <h3>Result</h3>
+                <p>Daily Score: ${dailyScore} points</p>
+                <p>Weekly Score: ${weeklyScore} points</p>
+            `;
+            resultBox.style.display = 'block';
+        }
+
+        // Initialize the page
+        initialize();
     </script>
 </body>
 </html>
+
+        
